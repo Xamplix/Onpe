@@ -1,62 +1,9 @@
-import { chromium, type Browser, type Response } from "playwright-core";
+import { chromium, type Browser, type Response } from "playwright";
 import type { Candidato, Resumen } from "./types";
 
 const ONPE_URL = "https://resultadoelectoral.onpe.gob.pe/main/resumen";
-// Serverless (Netlify Pro 26 s, Vercel hobby 10 s) impone un presupuesto muy
-// ajustado. Los tiempos siguientes dejan ~5 s de margen para que Chromium
-// arranque en cold start y el runtime retorne JSON.
-const NAV_TIMEOUT_MS = Number(process.env.ONPE_NAV_TIMEOUT_MS ?? 15_000);
-const COLLECT_WINDOW_MS = Number(process.env.ONPE_COLLECT_MS ?? 4_000);
-
-/**
- * Arranca Chromium tomando la mejor ruta disponible para el entorno:
- *
- * - AWS Lambda / Vercel → binario reducido de `@sparticuz/chromium`.
- * - Local / Docker      → el Chromium instalado por `playwright install`
- *                         o el que trae la imagen `mcr.microsoft.com/playwright`.
- * - Override manual     → `CHROMIUM_EXECUTABLE_PATH` gana siempre.
- */
-async function launchBrowser(): Promise<Browser> {
-  const override = process.env.CHROMIUM_EXECUTABLE_PATH;
-  if (override) {
-    return chromium.launch({
-      headless: true,
-      executablePath: override,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
-    });
-  }
-
-  const isLambda = Boolean(
-    process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.VERCEL ||
-      process.env.NETLIFY,
-  );
-  if (isLambda) {
-    // `@sparticuz/chromium` expone la API como export default: una clase
-    // `Chromium` con `args` y `executablePath()` estáticos. La forma en que
-    // Node resuelve el dynamic import varía entre ESM y interop CJS, así que
-    // normalizamos ambos casos con un cast mínimo.
-    type SparticuzChromium = {
-      args: string[];
-      executablePath(): Promise<string>;
-    };
-    const imported = (await import("@sparticuz/chromium")) as
-      | SparticuzChromium
-      | { default: SparticuzChromium };
-    const sparticuz: SparticuzChromium =
-      "default" in imported ? imported.default : imported;
-    return chromium.launch({
-      headless: true,
-      executablePath: await sparticuz.executablePath(),
-      args: sparticuz.args,
-    });
-  }
-
-  return chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
-  });
-}
+const NAV_TIMEOUT_MS = 45_000;
+const COLLECT_WINDOW_MS = 8_000;
 
 /**
  * Lanza un Chromium headless, visita el tablero de resultados de la ONPE y
@@ -72,7 +19,10 @@ async function launchBrowser(): Promise<Browser> {
 export async function scrapeResumenPresidencial(): Promise<Resumen> {
   let browser: Browser | undefined;
   try {
-    browser = await launchBrowser();
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    });
     const context = await browser.newContext({
       userAgent:
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
@@ -96,11 +46,8 @@ export async function scrapeResumenPresidencial(): Promise<Resumen> {
       }
     });
 
-    // `networkidle` es lo ideal pero es caro. En serverless usamos
-    // `domcontentloaded` + colecta activa — los listeners van capturando
-    // respuestas durante ese lapso.
     await page.goto(ONPE_URL, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "networkidle",
       timeout: NAV_TIMEOUT_MS,
     });
     await page.waitForTimeout(COLLECT_WINDOW_MS);

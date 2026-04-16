@@ -1,4 +1,4 @@
-import { getResumenCached } from "@/lib/cache";
+import { loadResumen } from "@/lib/data";
 import { calcularDiferencia } from "@/lib/diferencia";
 import type { DiferenciaSegundoTercero } from "@/lib/types";
 
@@ -16,8 +16,13 @@ export default async function Home() {
   let diff: DiferenciaSegundoTercero | null = null;
   let error: string | null = null;
   try {
-    const resumen = await getResumenCached();
-    diff = calcularDiferencia(resumen);
+    const resumen = loadResumen();
+    if (!resumen) {
+      error =
+        "No hay datos todavía. Corre 'npm run scrape' en tu máquina para generar data/results.json y haz push.";
+    } else {
+      diff = calcularDiferencia(resumen);
+    }
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   }

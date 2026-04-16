@@ -1,20 +1,28 @@
 import { NextResponse } from "next/server";
-import { getResumenCached } from "@/lib/cache";
+import { loadResumen } from "@/lib/data";
 import { calcularDiferencia } from "@/lib/diferencia";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  const force = new URL(request.url).searchParams.get("force") === "1";
+export async function GET() {
+  const resumen = loadResumen();
+  if (!resumen) {
+    return NextResponse.json(
+      {
+        error:
+          "No hay datos todavía. Corre 'npm run scrape' localmente para generar data/results.json y haz push.",
+      },
+      { status: 503 },
+    );
+  }
   try {
-    const resumen = await getResumenCached(force);
     const diff = calcularDiferencia(resumen);
     return NextResponse.json(diff, {
       headers: { "cache-control": "no-store" },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

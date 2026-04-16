@@ -29,9 +29,7 @@ yarn-error.log*
 *.swp
 .DS_Store
 
-# Scraper output / cache
-data/snapshots/*.json
-!data/snapshots/.gitkeep
+# Scraper cache (pero data/results.json SÍ se trackea)
 data/cache/
 *.har
 

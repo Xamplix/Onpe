@@ -1,0 +1,28 @@
+{
+  "eleccion": "Elecciones Generales 2026 – Fórmula Presidencial",
+  "actasProcesadas": 91.802,
+  "obtenidoEn": "2026-04-15T19:47:14.000Z",
+  "candidatos": [
+    {
+      "posicion": 1,
+      "nombre": "KEIKO SOFIA FUJIMORI HIGUCHI",
+      "organizacion": "FUERZA POPULAR",
+      "votos": 2643727,
+      "porcentaje": 17.044
+    },
+    {
+      "posicion": 2,
+      "nombre": "ROBERTO HELBERT SANCHEZ PALOMINO",
+      "organizacion": "JUNTOS POR EL PERU",
+      "votos": 1872001,
+      "porcentaje": 12.069
+    },
+    {
+      "posicion": 3,
+      "nombre": "RAFAEL BERNARDO LOPEZ ALIAGA CAZORLA",
+      "organizacion": "RENOVACION POPULAR",
+      "votos": 1586236,
+      "porcentaje": 10.227
+    }
+  ]
+}

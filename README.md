@@ -13,11 +13,12 @@ en <https://resultadoelectoral.onpe.gob.pe/main/resumen>.
   - API `GET /api/resumen` → todos los candidatos ordenados por votos.
   - CLI `pnpm run scrape` → misma info en consola.
 
-## Cómo corre
+## Cómo corre (local)
 
 ```bash
-pnpm install        # baja dependencias + Chromium de Playwright
-pnpm dev            # http://localhost:3000
+pnpm install
+pnpm run install:browsers   # baja Chromium (solo la primera vez)
+pnpm dev                    # http://localhost:3000
 # opcional: calcular una sola vez por CLI
 pnpm run scrape
 ```
@@ -91,10 +92,51 @@ src/
     └── discover-endpoints.ts     CLI: lista JSONs que pide la SPA
 ```
 
+## Deploy
+
+El proyecto tiene un `Dockerfile` multi-stage que arranca de
+`mcr.microsoft.com/playwright:v1.48.0-jammy` (trae Chromium + libs), compila
+Next.js y corre con usuario no-root. **Cualquier plataforma que acepte un
+Dockerfile sirve**. Probar localmente:
+
+```bash
+docker build -t onpe .
+docker run -p 3000:3000 onpe
+# http://localhost:3000
+```
+
+### Railway (recomendado, 1 clic)
+
+1. <https://railway.app> → **New Project** → **Deploy from GitHub repo**
+2. Selecciona `Xamplix/Onpe` y la rama `main` (luego de mergear el PR).
+3. Railway detecta el `Dockerfile` solo. Pulsa **Deploy**.
+4. En **Settings → Networking → Generate domain** obtienes una URL pública.
+
+No hay que setear variables de entorno (todo funciona con defaults).
+Opcional: `ONPE_CACHE_TTL_MS=120000` para cachear 2 min.
+
+### Fly.io
+
+```bash
+curl -L https://fly.io/install.sh | sh
+fly auth login
+fly launch --no-deploy        # acepta los defaults, usa el Dockerfile
+fly deploy
+```
+
+### Render / Cloud Run / DO App Platform
+
+Mismo Dockerfile, mismo flujo: "Deploy from Git" apuntando a este repo.
+
+> ⚠️ **Vercel no es buena opción** para este servicio: Chromium (~170 MB) no
+> entra en los límites del lambda estándar. Se podría adaptar con
+> `@sparticuz/chromium-min` + `playwright-core`, pero complica el código. Con
+> Docker todo Just Works.
+
 ## Notas
 
-- `/api/*` está marcado como `dynamic = "force-dynamic"` para no quedar
-  cacheado en Vercel edge — los datos cambian minuto a minuto durante el conteo.
-- Para deploy serverless (Vercel) hay que usar un runtime con Chromium
-  disponible (por ejemplo `@sparticuz/chromium` + Playwright-core). Este repo
-  asume Node self-hosted con Chromium instalado por `playwright install`.
+- `/api/*` está marcado como `dynamic = "force-dynamic"` — los datos cambian
+  minuto a minuto durante el conteo, no queremos cachear en el edge.
+- El cache en memoria de 60 s vive por instancia. Si escalas a varios pods
+  habrá divergencia temporal breve entre réplicas; para algo así tan ligero
+  es aceptable.

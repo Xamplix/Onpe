@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "scrape": "tsx src/scripts/scrape.ts",
     "discover": "tsx src/scripts/discover-endpoints.ts",
-    "postinstall": "playwright install --with-deps chromium || true"
+    "install:browsers": "playwright install --with-deps chromium"
   },
   "engines": {
     "node": ">=20.0.0"

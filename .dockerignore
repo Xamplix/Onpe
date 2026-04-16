@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.gitignore
+.env*
+!.env.example
+README.md
+Dockerfile
+.dockerignore
+data/snapshots
+data/cache
+*.log
+.vscode
+.idea
+.DS_Store
+test-results
+playwright-report

@@ -1,9 +1,48 @@
-import { chromium, type Browser, type Response } from "playwright";
+import { chromium, type Browser, type Response } from "playwright-core";
 import type { Candidato, Resumen } from "./types";
 
 const ONPE_URL = "https://resultadoelectoral.onpe.gob.pe/main/resumen";
 const NAV_TIMEOUT_MS = 45_000;
 const COLLECT_WINDOW_MS = 8_000;
+
+/**
+ * Arranca Chromium tomando la mejor ruta disponible para el entorno:
+ *
+ * - AWS Lambda / Vercel → binario reducido de `@sparticuz/chromium`.
+ * - Local / Docker      → el Chromium instalado por `playwright install`
+ *                         o el que trae la imagen `mcr.microsoft.com/playwright`.
+ * - Override manual     → `CHROMIUM_EXECUTABLE_PATH` gana siempre.
+ */
+async function launchBrowser(): Promise<Browser> {
+  const override = process.env.CHROMIUM_EXECUTABLE_PATH;
+  if (override) {
+    return chromium.launch({
+      headless: true,
+      executablePath: override,
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    });
+  }
+
+  const isLambda = Boolean(
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.VERCEL ||
+      process.env.NETLIFY,
+  );
+  if (isLambda) {
+    const mod = await import("@sparticuz/chromium");
+    const sparticuz = (mod as { default?: typeof mod }).default ?? mod;
+    return chromium.launch({
+      headless: true,
+      executablePath: await sparticuz.executablePath(),
+      args: sparticuz.args,
+    });
+  }
+
+  return chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  });
+}
 
 /**
  * Lanza un Chromium headless, visita el tablero de resultados de la ONPE y
@@ -19,10 +58,7 @@ const COLLECT_WINDOW_MS = 8_000;
 export async function scrapeResumenPresidencial(): Promise<Resumen> {
   let browser: Browser | undefined;
   try {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
-    });
+    browser = await launchBrowser();
     const context = await browser.newContext({
       userAgent:
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",

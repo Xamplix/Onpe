@@ -1,10 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // The scraper imports Playwright; keep it out of the client bundle.
-  serverExternalPackages: ["playwright"],
+  // Estos paquetes traen binarios / código nativo: no deben bundlarse.
+  serverExternalPackages: ["playwright-core", "@sparticuz/chromium"],
+  // Incluir el binario (~30 MB) dentro del tracing para que Vercel lo suba al lambda.
+  outputFileTracingIncludes: {
+    "/api/**/*": ["./node_modules/@sparticuz/chromium/**/*"],
+    "/": ["./node_modules/@sparticuz/chromium/**/*"],
+  },
   experimental: {
-    // Allow longer scraping jobs during SSR/route handlers.
     proxyTimeout: 60_000,
   },
 };

@@ -94,44 +94,43 @@ src/
 
 ## Deploy
 
-El proyecto tiene un `Dockerfile` multi-stage que arranca de
-`mcr.microsoft.com/playwright:v1.48.0-jammy` (trae Chromium + libs), compila
-Next.js y corre con usuario no-root. **Cualquier plataforma que acepte un
-Dockerfile sirve**. Probar localmente:
+El código detecta en runtime dónde está corriendo y elige el Chromium
+adecuado:
+
+| Entorno | Binario usado |
+|---------|--------------|
+| Vercel / AWS Lambda | `@sparticuz/chromium` (~30 MB, cabe en el lambda) |
+| Docker / VPS        | Chromium de la imagen `mcr.microsoft.com/playwright` |
+| Local               | el que bajó `npx playwright install chromium` |
+| Override            | `CHROMIUM_EXECUTABLE_PATH` (gana siempre) |
+
+### Vercel (1 clic)
+
+1. <https://vercel.com/new> → **Import Git Repository** → `Xamplix/Onpe`.
+2. Framework preset: **Next.js**. No hace falta tocar nada más — `vercel.json`
+   ya pide 1024 MB de memoria y 60 s de timeout, que es lo que necesita
+   Chromium para arrancar en lambda.
+3. Deploy.
+
+Tras mergear el PR, Vercel auto-redespliega. La primera llamada puede tardar
+~10 s (cold start bajando Chromium a `/tmp`); las siguientes son instantáneas
+mientras el lambda esté caliente.
+
+### Railway / Fly / Render (Docker)
+
+Incluye `Dockerfile` multi-stage basado en
+`mcr.microsoft.com/playwright:v1.48.0-jammy` (Chromium + libs pre-instalados,
+usuario no-root). Probar localmente:
 
 ```bash
 docker build -t onpe .
 docker run -p 3000:3000 onpe
-# http://localhost:3000
 ```
 
-### Railway (recomendado, 1 clic)
-
-1. <https://railway.app> → **New Project** → **Deploy from GitHub repo**
-2. Selecciona `Xamplix/Onpe` y la rama `main` (luego de mergear el PR).
-3. Railway detecta el `Dockerfile` solo. Pulsa **Deploy**.
-4. En **Settings → Networking → Generate domain** obtienes una URL pública.
-
-No hay que setear variables de entorno (todo funciona con defaults).
-Opcional: `ONPE_CACHE_TTL_MS=120000` para cachear 2 min.
-
-### Fly.io
-
-```bash
-curl -L https://fly.io/install.sh | sh
-fly auth login
-fly launch --no-deploy        # acepta los defaults, usa el Dockerfile
-fly deploy
-```
-
-### Render / Cloud Run / DO App Platform
-
-Mismo Dockerfile, mismo flujo: "Deploy from Git" apuntando a este repo.
-
-> ⚠️ **Vercel no es buena opción** para este servicio: Chromium (~170 MB) no
-> entra en los límites del lambda estándar. Se podría adaptar con
-> `@sparticuz/chromium-min` + `playwright-core`, pero complica el código. Con
-> Docker todo Just Works.
+- **Railway**: *New Project → Deploy from GitHub repo →* selecciona `Xamplix/Onpe`.
+  Detecta el Dockerfile solo.
+- **Fly.io**: `fly launch --no-deploy && fly deploy`.
+- **Render / Cloud Run / DO App Platform**: deploy from Git con el Dockerfile.
 
 ## Notas
 

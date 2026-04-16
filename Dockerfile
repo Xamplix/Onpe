@@ -1,15 +1,12 @@
 # ---- deps ----------------------------------------------------------------
-# Usamos la imagen oficial de Playwright: trae Chromium y TODAS las libs de
-# sistema necesarias (libnss3, libatk, etc.) ya instaladas y parchadas.
+# Imagen oficial de Playwright: trae Chromium + todas las libs del sistema
+# ya instaladas en /ms-playwright/.
 FROM mcr.microsoft.com/playwright:v1.48.0-jammy AS deps
 WORKDIR /app
 
-# Habilitar corepack para usar pnpm/yarn si el proyecto cambia en el futuro.
-RUN corepack enable
-
 COPY package.json package-lock.json* ./
-# postinstall intentaría bajar Chromium — la imagen ya lo trae, así lo saltamos.
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# playwright-core no baja browsers (esa es la gracia). @sparticuz/chromium sí
+# se instala pero no se usa fuera de lambda.
 RUN npm install --no-audit --no-fund
 
 # ---- builder -------------------------------------------------------------
@@ -26,13 +23,13 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    # Decirle a playwright-core dónde vive Chromium dentro de esta imagen.
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Usuario no-root que ya viene en la imagen de Playwright.
 RUN groupadd --system --gid 1001 nodejs \
  && useradd  --system --uid 1001 --gid nodejs nextjs
 
-# Copiamos solo lo necesario para correr Next.js.
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules

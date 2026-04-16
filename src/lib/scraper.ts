@@ -32,8 +32,19 @@ async function launchBrowser(): Promise<Browser> {
       process.env.NETLIFY,
   );
   if (isLambda) {
-    const mod = await import("@sparticuz/chromium");
-    const sparticuz = (mod as { default?: typeof mod }).default ?? mod;
+    // `@sparticuz/chromium` expone la API como export default: una clase
+    // `Chromium` con `args` y `executablePath()` estáticos. La forma en que
+    // Node resuelve el dynamic import varía entre ESM y interop CJS, así que
+    // normalizamos ambos casos con un cast mínimo.
+    type SparticuzChromium = {
+      args: string[];
+      executablePath(): Promise<string>;
+    };
+    const imported = (await import("@sparticuz/chromium")) as
+      | SparticuzChromium
+      | { default: SparticuzChromium };
+    const sparticuz: SparticuzChromium =
+      "default" in imported ? imported.default : imported;
     return chromium.launch({
       headless: true,
       executablePath: await sparticuz.executablePath(),

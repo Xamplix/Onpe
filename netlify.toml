@@ -1,0 +1,28 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# El runtime oficial de Next.js en Netlify:
+#   https://docs.netlify.com/integrations/frameworks/next-js/overview/
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ---------------------------------------------------------------------------
+# Config para las funciones serverless que generan el SSR y las /api/*.
+# Netlify usa nombres como `___netlify-server-handler` para el runtime de Next.
+# El splat "*" aplica a todas.
+# ---------------------------------------------------------------------------
+[functions]
+  # Meter el binario de @sparticuz/chromium dentro del bundle del lambda.
+  included_files = [
+    "node_modules/@sparticuz/chromium/**",
+  ]
+  # No bundlear estos paquetes: el binario debe leerse desde disk en runtime.
+  external_node_modules = ["playwright-core", "@sparticuz/chromium"]
+
+[functions."*"]
+  # Plan Free = 10 s, Pro = 26 s. 26 s es lo máximo para funciones síncronas.
+  # Si tu cuenta es Free, baja a 10 — pero probablemente no alcance para que
+  # Chromium arranque + navegue la SPA de ONPE.
+  timeout = 26
+  memory = 1024

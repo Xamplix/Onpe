@@ -2,8 +2,11 @@ import { chromium, type Browser, type Response } from "playwright-core";
 import type { Candidato, Resumen } from "./types";
 
 const ONPE_URL = "https://resultadoelectoral.onpe.gob.pe/main/resumen";
-const NAV_TIMEOUT_MS = 45_000;
-const COLLECT_WINDOW_MS = 8_000;
+// Serverless (Netlify Pro 26 s, Vercel hobby 10 s) impone un presupuesto muy
+// ajustado. Los tiempos siguientes dejan ~5 s de margen para que Chromium
+// arranque en cold start y el runtime retorne JSON.
+const NAV_TIMEOUT_MS = Number(process.env.ONPE_NAV_TIMEOUT_MS ?? 15_000);
+const COLLECT_WINDOW_MS = Number(process.env.ONPE_COLLECT_MS ?? 4_000);
 
 /**
  * Arranca Chromium tomando la mejor ruta disponible para el entorno:
@@ -82,11 +85,13 @@ export async function scrapeResumenPresidencial(): Promise<Resumen> {
       }
     });
 
+    // `networkidle` es lo ideal pero es caro. En serverless usamos
+    // `domcontentloaded` + colecta activa — los listeners van capturando
+    // respuestas durante ese lapso.
     await page.goto(ONPE_URL, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
       timeout: NAV_TIMEOUT_MS,
     });
-    // Dar tiempo a que los widgets carguen datos diferidos.
     await page.waitForTimeout(COLLECT_WINDOW_MS);
 
     const resumen = pickPresidentialPayload(jsonResponses);

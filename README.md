@@ -104,17 +104,35 @@ adecuado:
 | Local               | el que bajó `npx playwright install chromium` |
 | Override            | `CHROMIUM_EXECUTABLE_PATH` (gana siempre) |
 
+### Netlify (1 clic)
+
+1. <https://app.netlify.com/start> → **Import from Git** → `Xamplix/Onpe`.
+2. Netlify detecta Next.js automáticamente. El `netlify.toml` del repo ya
+   pide 1024 MB + 26 s de timeout y fuerza a que `@sparticuz/chromium` se
+   incluya en el bundle del lambda.
+3. Deploy.
+
+> ⚠️ **Plan Free de Netlify tiene 10 s de timeout** y Chromium tarda ~3 s en
+> arrancar en cold start + otro tanto en navegar la SPA. Si estás en Free y
+> el endpoint da 504, necesitas Pro (26 s) o un deploy en Railway/Fly.
+
+Variables opcionales que puedes setear en **Site settings → Environment**:
+
+| Variable | Default | Para qué |
+|----------|---------|----------|
+| `ONPE_CACHE_TTL_MS` | `60000` | cache en memoria por request |
+| `ONPE_NAV_TIMEOUT_MS` | `15000` | timeout del `page.goto` |
+| `ONPE_COLLECT_MS` | `4000` | ventana para capturar XHR JSON |
+
 ### Vercel (1 clic)
 
 1. <https://vercel.com/new> → **Import Git Repository** → `Xamplix/Onpe`.
-2. Framework preset: **Next.js**. No hace falta tocar nada más — `vercel.json`
-   ya pide 1024 MB de memoria y 60 s de timeout, que es lo que necesita
-   Chromium para arrancar en lambda.
+2. `vercel.json` ya pide 1024 MB + 60 s de timeout.
 3. Deploy.
 
-Tras mergear el PR, Vercel auto-redespliega. La primera llamada puede tardar
-~10 s (cold start bajando Chromium a `/tmp`); las siguientes son instantáneas
-mientras el lambda esté caliente.
+Tras mergear el PR, Vercel/Netlify auto-redespliega. La primera llamada
+tarda ~5 s (cold start bajando Chromium a `/tmp`); las siguientes son
+instantáneas mientras el lambda esté caliente.
 
 ### Railway / Fly / Render (Docker)
 
